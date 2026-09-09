@@ -6,7 +6,9 @@ class PlayerResolveRequest(BaseModel):
     tag_line: str
 
 
-class RiotAccountResponse(BaseModel):
+class PlayerResponse(BaseModel):
     puuid: str
-    gameName: str
-    tagLine: str
+    in_game_name: str
+    tag_line: str
+    profile_icon_id: int
+    summoner_level: int
