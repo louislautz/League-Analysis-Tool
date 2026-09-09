@@ -1,6 +1,10 @@
 import httpx
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from app.database.models.player import Player
+from app.database.session import get_db
 
 from app.core.config import settings
 from app.schemas.player import PlayerResolveRequest, PlayerResponse
@@ -13,7 +17,7 @@ router = APIRouter(
 
 
 @router.post("/resolve", response_model=PlayerResponse)
-async def resolve_player(request: PlayerResolveRequest):
+async def resolve_player(request: PlayerResolveRequest, db: Session = Depends(get_db)):
     headers = {
         "X-Riot-Token": settings.riot_api_key,
     }
@@ -63,11 +67,33 @@ async def resolve_player(request: PlayerResolveRequest):
             )
 
         summoner_data = summoner_response.json()
+        
+        player = db.get(Player, puuid)
+
+        if player is None:
+            player = Player(
+                puuid=puuid,
+                in_game_name=account_data["gameName"],
+                tag_line=account_data["tagLine"],
+                profile_icon_id=summoner_data["profileIconId"],
+                summoner_level=summoner_data["summonerLevel"],
+            )
+
+            db.add(player)
+
+        else:
+            player.in_game_name = account_data["gameName"]
+            player.tag_line = account_data["tagLine"]
+            player.profile_icon_id = summoner_data["profileIconId"]
+            player.summoner_level = summoner_data["summonerLevel"]
+
+        db.commit()
+        db.refresh(player)
 
     return PlayerResponse(
-        puuid=puuid,
-        in_game_name=account_data["gameName"],
-        tag_line=account_data["tagLine"],
-        profile_icon_id=summoner_data["profileIconId"],
-        summoner_level=summoner_data["summonerLevel"],
+        puuid=player.puuid,
+        in_game_name=player.in_game_name,
+        tag_line=player.tag_line,
+        profile_icon_id=player.profile_icon_id,
+        summoner_level=player.summoner_level,
     )
